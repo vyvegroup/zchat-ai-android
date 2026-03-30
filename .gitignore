@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+*.db
+*.db-journal
+android/.gradle/
+android/build/
+android/app/build/
+android/captures/
+android/local.properties
+*.keystore
+*.jks
+.env
+.env.local
+.zscripts/
+dev.log
+server.log

@@ -290,10 +290,32 @@ html, body {
   }
 }
 
-/* Hide all Next.js dev indicators */
+/* Hide ALL Next.js dev indicators, overlays, and watermarks */
 .__next-build-watcher,
 [next-route-announcer],
-[id^="__next"] {
+[id^="__next"],
+[data-nextjs-dialog-overlay],
+[nextjs-portal],
+.studio-portal,
+[data-nextjs-toast],
+div[id*="nextjs"],
+iframe[title*="next"],
+div[style*="position: fixed"][style*="z-index: 9999"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  height: 0 !important;
+  width: 0 !important;
+  overflow: hidden !important;
+  opacity: 0 !important;
+}
+/* Hide React error overlay */
+[data-nextjs-codeframe],
+[data-nextjs-error-overlay] {
+  display: none !important;
+}
+/* Hide turbopack/webpack dev indicator */
+div[id="__next-route-announcer"] {
   display: none !important;
 }
 

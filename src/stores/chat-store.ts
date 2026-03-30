@@ -1,10 +1,18 @@
 import { create } from 'zustand';
 import { AIRole, getAllRoles } from '@/lib/ai-roles';
 
+export interface ImageResult {
+  url: string;
+  name: string;
+  thumbnail: string;
+  source: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
+  images?: ImageResult[];
   createdAt: string;
 }
 

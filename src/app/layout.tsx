@@ -46,6 +46,31 @@ export default function RootLayout({
     <html lang="vi" className="dark" suppressHydrationWarning>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
+        <script dangerouslySetInnerHTML={{ __html: `
+          // Hide Next.js dev overlays
+          const observer = new MutationObserver((mutations) => {
+            for (const m of mutations) {
+              for (const node of m.addedNodes) {
+                if (node.nodeType === 1) {
+                  const el = node;
+                  if (
+                    el.id && (el.id.startsWith('__next') || el.id.includes('nextjs') || el.id.includes('toast') || el.id.includes('overlay')) ||
+                    el.dataset?.nextjsDialogOverlay !== undefined ||
+                    el.dataset?.nextjsCodeframe !== undefined ||
+                    (el.style && el.style.zIndex === '9999' && el.style.position === 'fixed' && el.tagName === 'DIV' && el.parentElement?.tagName === 'BODY')
+                  ) {
+                    el.remove();
+                  }
+                }
+              }
+            }
+          });
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+          // Remove existing on load
+          window.addEventListener('load', () => {
+            document.querySelectorAll('[id*="nextjs"], [data-nextjs-dialog-overlay], [data-nextjs-codeframe], [data-nextjs-toast]').forEach(el => el.remove());
+          });
+        ` }} />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}

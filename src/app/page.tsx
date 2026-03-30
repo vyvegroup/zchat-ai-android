@@ -10,9 +10,9 @@ import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { TypingIndicator } from '@/components/chat/typing-indicator';
 import { CreateRolePanel } from '@/components/chat/create-role-panel';
 import { useChatStore } from '@/stores/chat-store';
-import { getAllRoles, TAG_COLORS } from '@/lib/ai-roles';
+import { getAllRoles, DEFAULT_ROLES, TAG_COLORS } from '@/lib/ai-roles';
 import type { AIRole } from '@/lib/ai-roles';
-import type { Session, Message } from '@/stores/chat-store';
+import type { Session, Message, ImageResult } from '@/stores/chat-store';
 
 export default function Home() {
   const {
@@ -38,7 +38,7 @@ export default function Home() {
   const [showRolePicker, setShowRolePicker] = useState(false);
   const [showCreateRole, setShowCreateRole] = useState(false);
 
-  const currentRole = roles[selectedRoleIndex] || roles[0];
+  const currentRole = roles[selectedRoleIndex] || roles[0] || DEFAULT_ROLES[0];
 
   useEffect(() => {
     loadSessions();
@@ -138,6 +138,80 @@ export default function Home() {
     await sendToAI(currentSessionId, content);
   };
 
+  const searchImages = async (query: string) => {
+    // Add user message
+    const userMsg: Message = {
+      id: `temp-${Date.now()}`,
+      role: 'user',
+      content: `🔍 Tìm ảnh: ${query}`,
+      createdAt: new Date().toISOString(),
+    };
+    addMessage(userMsg);
+    setIsSending(true);
+
+    try {
+      // Ensure session exists
+      let sid = currentSessionId;
+      if (!sid) {
+        const res = await fetch('/api/sessions', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: `🔍 ${query}` }),
+        });
+        if (res.ok) {
+          const newSession = await res.json();
+          sid = newSession.id;
+          setCurrentSessionId(sid);
+          await loadSessions();
+        } else return;
+      }
+
+      const res = await fetch('/api/images', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query, limit: 12 }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const imageResults: ImageResult[] = (data.results || []).map((item: { url: string; name: string; thumbnail: string; source: string; tags?: string[]; score?: number }) => ({
+          url: item.url || item.thumbnail,
+          name: item.name || query,
+          thumbnail: item.thumbnail || item.url,
+          source: item.source || 'Gelbooru',
+        }));
+
+        const content = imageResults.length > 0
+          ? `Tìm thấy **${imageResults.length} ảnh** cho "${query}" từ Gelbooru 🔍`
+          : `Không tìm thấy ảnh nào cho "${query}". Thử tags khác nhé!`;
+
+        addMessage({
+          id: `img-${Date.now()}`,
+          role: 'assistant',
+          content,
+          images: imageResults.length > 0 ? imageResults : undefined,
+          createdAt: new Date().toISOString(),
+        });
+      } else {
+        addMessage({
+          id: `error-${Date.now()}`,
+          role: 'assistant',
+          content: '❌ Không thể tìm ảnh. Thử lại sau.',
+          createdAt: new Date().toISOString(),
+        });
+      }
+    } catch {
+      addMessage({
+        id: `error-${Date.now()}`,
+        role: 'assistant',
+        content: '❌ Lỗi kết nối. Thử lại sau.',
+        createdAt: new Date().toISOString(),
+      });
+    } finally {
+      setIsSending(false);
+    }
+  };
+
   const sendToAI = async (sessionId: string, content: string) => {
     const userMessage: Message = {
       id: `temp-${Date.now()}`,
@@ -170,6 +244,7 @@ export default function Home() {
           id: `ai-${Date.now()}`,
           role: 'assistant',
           content: data.content,
+          images: data.images || undefined,
           createdAt: new Date().toISOString(),
         });
         loadSessions();
@@ -182,7 +257,7 @@ export default function Home() {
           createdAt: new Date().toISOString(),
         });
       }
-    } catch (error) {
+    } catch {
       addMessage({
         id: `error-${Date.now()}`,
         role: 'assistant',
@@ -196,7 +271,6 @@ export default function Home() {
 
   const handleRolesUpdated = (newRoles: AIRole[]) => {
     setRoles(newRoles);
-    // Keep selected index in bounds
     if (selectedRoleIndex >= newRoles.length) {
       setSelectedRoleIndex(0);
     }
@@ -377,6 +451,17 @@ export default function Home() {
                   ? 'Custom role. Hãy bắt đầu trò chuyện.'
                   : getRoleDescription(currentRole.id)}
               </p>
+              {/* Quick action hints */}
+              {currentRole.supportsImages && (
+                <div
+                  className="mt-4 flex items-center gap-2 px-4 py-2 rounded-2xl"
+                  style={{ background: '#2B2B2B' }}
+                >
+                  <span className="text-xs" style={{ color: '#938F99' }}>
+                    💡 Nhấn nút <strong style={{ color: '#74B9FF' }}>🔍</strong> để tìm ảnh Gelbooru
+                  </span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="py-4 space-y-1">
@@ -394,7 +479,7 @@ export default function Home() {
         </div>
 
         {/* Input Area */}
-        <ChatInput onSend={sendMessage} disabled={isSending} />
+        <ChatInput onSend={sendMessage} onImageSearch={searchImages} disabled={isSending} />
       </div>
 
       {/* Mobile Sidebar */}
@@ -444,6 +529,26 @@ function getRoleDescription(id: string): string {
     translator: 'Dịch giả chuyên nghiệp đa ngôn ngữ.',
     teacher: 'Giáo viên giải thích mọi thứ.',
     analyst: 'Chuyên gia phân tích & tư vấn.',
+    'anime-expert': 'Chuyên gia anime/manga, đề xuất & review.',
+    gamer: 'Game thủ chuyên nghiệp, review & guide.',
+    'meme-king': 'Vua meme, hài hước, bắt trend.',
+    chef: 'Đầu bếp, công thức & mẹo nấu ăn.',
+    fitness: 'Huấn luyện viên thể hình & dinh dưỡng.',
+    music: 'Chuyên gia âm nhạc mọi thể loại.',
+    philosopher: 'Triết gia, thảo luận sâu sắc.',
+    'image-gen': 'Chuyên gia tạo prompt ảnh AI.',
+    'nsfw-rp': 'Đối tác RP trưởng thành, nhập vai hoàn toàn.',
+    'nsfw-story': 'Nhà kể chuyện không giới hạn nội dung.',
+    'nsfw-writer': 'Nhà văn 18+, văn phong nghệ thuật.',
+    'nsfw-advisor': 'Cố vấn thân mật, không phán xét.',
+    'nsfw-char': 'Nhập vai bất kỳ nhân vật nào.',
+    'nsfw-imagine': 'Sáng tạo concept art & prompt.',
+    'nsfw-date': 'Date simulator, hẹn hò chân thực.',
+    unfiltered: 'AI không giới hạn, không kiểm duyệt.',
+    'nsfw-yandere': 'Yandere girl - yêu cuồng nhiệt, dark love.',
+    'nsfw-tsundere': 'Tsundere - lạnh lùng bên ngoài, dễ thương bên trong.',
+    'nsfw-kawaii': 'Kawaii Maid - dễ thương, gọi Master.',
+    'gelbooru-search': 'Tìm ảnh Gelbooru, SFW & NSFW.',
   };
   return descriptions[id] || 'Trợ lý AI thông minh.';
 }

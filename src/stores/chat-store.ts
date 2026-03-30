@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AI_ROLES } from '@/lib/ai-roles';
+import { AIRole, getAllRoles } from '@/lib/ai-roles';
 
 export interface Message {
   id: string;
@@ -24,6 +24,8 @@ interface ChatState {
   isSending: boolean;
   sidebarOpen: boolean;
   selectedRoleIndex: number;
+  roles: AIRole[];
+  showCreateRole: boolean;
 
   setSessions: (sessions: Session[]) => void;
   setCurrentSessionId: (id: string | null) => void;
@@ -34,6 +36,8 @@ interface ChatState {
   setSidebarOpen: (open: boolean) => void;
   toggleSidebar: () => void;
   setSelectedRoleIndex: (index: number) => void;
+  setRoles: (roles: AIRole[]) => void;
+  setShowCreateRole: (show: boolean) => void;
 }
 
 export const useChatStore = create<ChatState>((set) => ({
@@ -44,6 +48,8 @@ export const useChatStore = create<ChatState>((set) => ({
   isSending: false,
   sidebarOpen: false,
   selectedRoleIndex: 0,
+  roles: typeof window !== 'undefined' ? getAllRoles() : [],
+  showCreateRole: false,
 
   setSessions: (sessions) => set({ sessions }),
   setCurrentSessionId: (id) => set({ currentSessionId: id }),
@@ -55,4 +61,6 @@ export const useChatStore = create<ChatState>((set) => ({
   setSidebarOpen: (open) => set({ sidebarOpen: open }),
   toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSelectedRoleIndex: (index) => set({ selectedRoleIndex: index }),
+  setRoles: (roles) => set({ roles }),
+  setShowCreateRole: (show) => set({ showCreateRole: show }),
 }));

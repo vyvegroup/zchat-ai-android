@@ -1,11 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { db } from '@/lib/db';
-import { AI_ROLES } from '@/lib/ai-roles';
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, sessionId, roleId } = await request.json();
+    const { messages, sessionId, systemPrompt } = await request.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -14,8 +13,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find role or default to assistant
-    const role = AI_ROLES.find((r) => r.id === roleId) || AI_ROLES[0];
+    // Use provided system prompt or default
+    const finalPrompt = systemPrompt || 'Bạn là VenCode AI, một trợ lý AI thông minh và hữu ích. Trả lời bằng tiếng Việt.';
 
     // Save user message
     const lastUserMessage = messages[messages.length - 1];
@@ -44,9 +43,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build messages for AI with role system prompt
+    // Build messages for AI
     const aiMessages = [
-      { role: 'system', content: role.systemPrompt },
+      { role: 'system', content: finalPrompt },
       ...messages.map((m: { role: string; content: string }) => ({
         role: m.role,
         content: m.content,

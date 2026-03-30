@@ -1,15 +1,17 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
-import { Menu, Plus, Sparkles, ChevronDown } from 'lucide-react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { Menu, Plus, ChevronDown, Settings2 } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '@/components/chat/chat-message';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { TypingIndicator } from '@/components/chat/typing-indicator';
+import { CreateRolePanel } from '@/components/chat/create-role-panel';
 import { useChatStore } from '@/stores/chat-store';
-import { AI_ROLES } from '@/lib/ai-roles';
+import { getAllRoles, TAG_COLORS } from '@/lib/ai-roles';
+import type { AIRole } from '@/lib/ai-roles';
 import type { Session, Message } from '@/stores/chat-store';
 
 export default function Home() {
@@ -20,6 +22,7 @@ export default function Home() {
     isSending,
     sidebarOpen,
     selectedRoleIndex,
+    roles,
     setSessions,
     setCurrentSessionId,
     setMessages,
@@ -28,15 +31,18 @@ export default function Home() {
     setSidebarOpen,
     toggleSidebar,
     setSelectedRoleIndex,
+    setRoles,
   } = useChatStore();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const [showRolePicker, setShowRolePicker] = useRolePicker();
+  const [showRolePicker, setShowRolePicker] = useState(false);
+  const [showCreateRole, setShowCreateRole] = useState(false);
 
-  const currentRole = AI_ROLES[selectedRoleIndex];
+  const currentRole = roles[selectedRoleIndex] || roles[0];
 
   useEffect(() => {
     loadSessions();
+    setRoles(getAllRoles());
   }, []);
 
   useEffect(() => {
@@ -154,7 +160,7 @@ export default function Home() {
         body: JSON.stringify({
           messages: apiMessages,
           sessionId,
-          roleId: currentRole.id,
+          systemPrompt: currentRole.systemPrompt,
         }),
       });
 
@@ -188,6 +194,14 @@ export default function Home() {
     }
   };
 
+  const handleRolesUpdated = (newRoles: AIRole[]) => {
+    setRoles(newRoles);
+    // Keep selected index in bounds
+    if (selectedRoleIndex >= newRoles.length) {
+      setSelectedRoleIndex(0);
+    }
+  };
+
   return (
     <div className="h-dvh flex overflow-hidden" style={{ background: '#121212' }}>
       {/* Desktop Sidebar */}
@@ -211,13 +225,15 @@ export default function Home() {
           className="flex items-center justify-between px-2 shrink-0 safe-top"
           style={{ height: 64, background: '#1E1E1E' }}
         >
-          <button
-            className="md-icon-btn md:hidden"
-            onClick={toggleSidebar}
-            aria-label="Menu"
-          >
-            <Menu size={22} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              className="md-icon-btn md:hidden"
+              onClick={toggleSidebar}
+              aria-label="Menu"
+            >
+              <Menu size={22} />
+            </button>
+          </div>
 
           {/* Role Selector */}
           <div className="relative">
@@ -236,50 +252,92 @@ export default function Home() {
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowRolePicker(false)} />
                 <div
-                  className="absolute top-full left-0 mt-2 z-50 py-2 rounded-2xl md-elevation-2"
-                  style={{ background: '#2B2B2B', minWidth: 180 }}
+                  className="absolute top-full left-1/2 -translate-x-1/2 mt-2 z-50 py-2 rounded-2xl md-elevation-2"
+                  style={{ background: '#2B2B2B', minWidth: 200, maxWidth: 280 }}
                 >
-                  {AI_ROLES.map((role, index) => (
-                    <button
-                      key={role.id}
-                      onClick={() => {
-                        setSelectedRoleIndex(index);
-                        setShowRolePicker(false);
-                      }}
-                      className="flex items-center gap-3 w-full px-4 py-2.5 text-left transition-colors"
-                      style={{
-                        background: index === selectedRoleIndex ? '#333333' : 'transparent',
-                      }}
-                    >
-                      <span className="text-base">{role.icon}</span>
-                      <span
-                        className="text-sm font-medium"
+                  <div className="px-4 py-2 space-y-1" style={{ maxHeight: 340, overflowY: 'auto' }}>
+                    {roles.map((role, index) => (
+                      <button
+                        key={role.id}
+                        onClick={() => {
+                          setSelectedRoleIndex(index);
+                          setShowRolePicker(false);
+                        }}
+                        className="flex items-center gap-3 w-full px-3 py-2 rounded-xl text-left transition-colors"
                         style={{
-                          color: index === selectedRoleIndex ? role.color : '#CAC4D0',
+                          background: index === selectedRoleIndex ? '#333333' : 'transparent',
                         }}
                       >
-                        {role.name}
-                      </span>
-                      {index === selectedRoleIndex && (
-                        <div
-                          className="ml-auto w-2 h-2 rounded-full"
-                          style={{ background: role.color }}
-                        />
-                      )}
+                        <span className="text-base">{role.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <span
+                            className="text-sm font-medium"
+                            style={{
+                              color: index === selectedRoleIndex ? role.color : '#CAC4D0',
+                            }}
+                          >
+                            {role.name}
+                          </span>
+                          <div className="flex gap-1 mt-0.5 flex-wrap">
+                            {role.tags.slice(0, 3).map((tag) => (
+                              <span
+                                key={tag}
+                                className="text-[9px] px-1 py-px rounded-full"
+                                style={{
+                                  background: `${TAG_COLORS[tag] || '#49454F'}20`,
+                                  color: TAG_COLORS[tag] || '#938F99',
+                                }}
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                        {index === selectedRoleIndex && (
+                          <div
+                            className="w-2 h-2 rounded-full shrink-0"
+                            style={{ background: role.color }}
+                          />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Create Role Button */}
+                  <div style={{ borderTop: '1px solid #333333' }} className="px-3 pt-2 mt-1">
+                    <button
+                      onClick={() => {
+                        setShowRolePicker(false);
+                        setShowCreateRole(true);
+                      }}
+                      className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-left transition-colors"
+                      style={{ color: '#D0BCFF' }}
+                    >
+                      <Plus size={16} />
+                      <span className="text-sm font-medium">Tạo Role</span>
+                      <Settings2 size={14} className="ml-auto" style={{ color: '#938F99' }} />
                     </button>
-                  ))}
+                  </div>
                 </div>
               </>
             )}
           </div>
 
-          <button
-            className="md-icon-btn"
-            onClick={createNewChat}
-            aria-label="New chat"
-          >
-            <Plus size={22} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              className="md-icon-btn"
+              onClick={() => setShowCreateRole(true)}
+              aria-label="Manage roles"
+            >
+              <Settings2 size={20} />
+            </button>
+            <button
+              className="md-icon-btn"
+              onClick={createNewChat}
+              aria-label="New chat"
+            >
+              <Plus size={22} />
+            </button>
+          </div>
         </header>
 
         {/* Messages Area */}
@@ -287,7 +345,7 @@ export default function Home() {
           {messages.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full px-6">
               <div
-                className="flex items-center justify-center mb-5"
+                className="flex items-center justify-center mb-4"
                 style={{
                   width: 80,
                   height: 80,
@@ -300,8 +358,24 @@ export default function Home() {
               <p className="text-lg font-medium mb-1" style={{ color: '#E6E1E5' }}>
                 {currentRole.name}
               </p>
+              <div className="flex gap-1.5 mb-2 flex-wrap justify-center">
+                {currentRole.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-[11px] px-2 py-0.5 rounded-full font-medium"
+                    style={{
+                      background: `${TAG_COLORS[tag] || '#49454F'}20`,
+                      color: TAG_COLORS[tag] || '#938F99',
+                    }}
+                  >
+                    {tag}
+                  </span>
+                ))}
+              </div>
               <p className="text-sm text-center max-w-[260px]" style={{ color: '#938F99' }}>
-                {getRoleDescription(currentRole.id)}
+                {currentRole.isCustom
+                  ? 'Custom role. Hãy bắt đầu trò chuyện.'
+                  : getRoleDescription(currentRole.id)}
               </p>
             </div>
           ) : (
@@ -343,13 +417,23 @@ export default function Home() {
           />
         </SheetContent>
       </Sheet>
+
+      {/* Create Role Panel (Sheet) */}
+      <Sheet open={showCreateRole} onOpenChange={setShowCreateRole}>
+        <SheetContent
+          side="right"
+          className="w-[340px] sm:w-[400px] p-0"
+          style={{ background: '#1E1E1E' }}
+        >
+          <CreateRolePanel
+            roles={roles}
+            onClose={() => setShowCreateRole(false)}
+            onCreated={handleRolesUpdated}
+          />
+        </SheetContent>
+      </Sheet>
     </div>
   );
-}
-
-function useRolePicker() {
-  const [show, setShow] = React.useState(false);
-  return [show, setShow] as const;
 }
 
 function getRoleDescription(id: string): string {
@@ -363,5 +447,3 @@ function getRoleDescription(id: string): string {
   };
   return descriptions[id] || 'Trợ lý AI thông minh.';
 }
-
-import React from 'react';

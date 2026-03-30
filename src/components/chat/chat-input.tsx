@@ -1,9 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback } from 'react';
-import { SendHorizonal } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
+import { ArrowUp } from 'lucide-react';
 
 interface ChatInputProps {
   onSend: (message: string) => void;
@@ -20,7 +18,7 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
     onSend(trimmed);
     setInput('');
     if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
+      textareaRef.current.style.height = '56px';
     }
   }, [input, disabled, onSend]);
 
@@ -33,15 +31,21 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
-    // Auto-resize textarea
     const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = `${Math.min(textarea.scrollHeight, 120)}px`;
+    textarea.style.height = '56px';
+    textarea.style.height = `${Math.min(Math.max(textarea.scrollHeight, 56), 120)}px`;
   };
 
   return (
-    <div className="border-t border-zinc-800 bg-zinc-950/90 backdrop-blur-sm p-3">
-      <div className="flex items-end gap-2 max-w-3xl mx-auto">
+    <div
+      className="safe-bottom"
+      style={{
+        padding: '12px 16px',
+        background: '#1E1E1E',
+        borderTop: '1px solid #2B2B2B',
+      }}
+    >
+      <div className="flex items-end gap-3 max-w-3xl mx-auto">
         <div className="flex-1 relative">
           <textarea
             ref={textareaRef}
@@ -51,27 +55,29 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
             placeholder="Nhập tin nhắn..."
             disabled={disabled}
             rows={1}
-            className={cn(
-              'w-full resize-none rounded-2xl bg-zinc-800 border border-zinc-700 px-4 py-2.5 text-sm',
-              'text-zinc-100 placeholder:text-zinc-500',
-              'focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50',
-              'disabled:opacity-50 disabled:cursor-not-allowed',
-              'min-h-[42px] max-h-[120px]'
-            )}
+            className="md-input-field"
+            style={{
+              height: 56,
+              paddingRight: 4,
+            }}
           />
         </div>
-        <Button
+        <button
           onClick={handleSubmit}
           disabled={disabled || !input.trim()}
-          size="icon"
-          className={cn(
-            'h-[42px] w-[42px] rounded-2xl shrink-0',
-            'bg-emerald-600 hover:bg-emerald-500 text-white',
-            'disabled:opacity-40 disabled:bg-zinc-800'
-          )}
+          className="md-icon-btn"
+          style={{
+            width: 48,
+            height: 48,
+            background: disabled || !input.trim() ? '#2B2B2B' : '#D0BCFF',
+            color: disabled || !input.trim() ? '#49454F' : '#381E72',
+            marginBottom: 4,
+            transition: 'all 0.2s ease',
+          }}
+          aria-label="Send"
         >
-          <SendHorizonal className="h-4 w-4" />
-        </Button>
+          <ArrowUp size={22} />
+        </button>
       </div>
     </div>
   );

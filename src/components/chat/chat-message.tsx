@@ -2,8 +2,6 @@
 
 import { motion } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
-import { Bot, User } from 'lucide-react';
-import { Avatar } from '@/components/ui/avatar';
 import { cn } from '@/lib/utils';
 import type { Message } from '@/stores/chat-store';
 
@@ -24,47 +22,32 @@ export function ChatMessage({ message }: ChatMessageProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 12 }}
+      initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className={cn(
-        'flex gap-2.5 px-4 py-1.5',
-        isUser ? 'flex-row-reverse' : 'flex-row'
-      )}
+      transition={{ duration: 0.15, ease: 'easeOut' }}
+      className={cn('flex px-4 py-1', isUser ? 'justify-end' : 'justify-start')}
     >
-      <Avatar
-        className={cn(
-          'mt-1 h-8 w-8 shrink-0 flex items-center justify-center',
-          isUser
-            ? 'bg-emerald-600 text-white'
-            : 'bg-zinc-700 text-emerald-400'
-        )}
-      >
-        {isUser ? <User className="h-4 w-4" /> : <Bot className="h-4 w-4" />}
-      </Avatar>
-
-      <div
-        className={cn(
-          'max-w-[80%] rounded-2xl px-3.5 py-2.5',
-          isUser
-            ? 'bg-emerald-600 text-white rounded-br-md'
-            : 'bg-zinc-800 text-zinc-100 rounded-bl-md'
-        )}
-      >
+      <div className={cn('max-w-[82%] px-4 py-2.5', isUser ? 'md-bubble-user' : 'md-bubble-ai')}>
         {isUser ? (
           <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
             {message.content}
           </p>
         ) : (
-          <div className="text-sm leading-relaxed prose prose-invert prose-sm max-w-none prose-p:my-1 prose-headings:my-2 prose-pre:bg-zinc-900 prose-pre:p-3 prose-code:text-emerald-400 prose-a:text-emerald-400 prose-strong:text-white prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5">
-            <ReactMarkdown>{message.content}</ReactMarkdown>
+          <div
+            className="text-sm leading-relaxed max-w-none"
+            style={{ color: '#E6E1E5' }}
+          >
+            <div className="markdown-content">
+              <ReactMarkdown>{message.content}</ReactMarkdown>
+            </div>
           </div>
         )}
         <p
-          className={cn(
-            'text-[10px] mt-1',
-            isUser ? 'text-emerald-200/60 text-right' : 'text-zinc-500'
-          )}
+          className="text-[10px] mt-1"
+          style={{
+            color: isUser ? 'rgba(56, 30, 114, 0.5)' : '#938F99',
+            textAlign: isUser ? 'right' : 'left',
+          }}
         >
           {formatTime(message.createdAt)}
         </p>

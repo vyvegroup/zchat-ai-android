@@ -1,16 +1,15 @@
 'use client';
 
 import { useEffect, useRef, useCallback } from 'react';
-import { Menu, Plus, Bot } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { Menu, Plus, Sparkles, ChevronDown } from 'lucide-react';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { AnimatePresence } from 'framer-motion';
 import { ChatMessage } from '@/components/chat/chat-message';
 import { ChatInput } from '@/components/chat/chat-input';
 import { ChatSidebar } from '@/components/chat/chat-sidebar';
 import { TypingIndicator } from '@/components/chat/typing-indicator';
 import { useChatStore } from '@/stores/chat-store';
+import { AI_ROLES } from '@/lib/ai-roles';
 import type { Session, Message } from '@/stores/chat-store';
 
 export default function Home() {
@@ -20,6 +19,7 @@ export default function Home() {
     messages,
     isSending,
     sidebarOpen,
+    selectedRoleIndex,
     setSessions,
     setCurrentSessionId,
     setMessages,
@@ -27,17 +27,18 @@ export default function Home() {
     setIsSending,
     setSidebarOpen,
     toggleSidebar,
+    setSelectedRoleIndex,
   } = useChatStore();
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [showRolePicker, setShowRolePicker] = useRolePicker();
 
-  // Load sessions on mount
+  const currentRole = AI_ROLES[selectedRoleIndex];
+
   useEffect(() => {
     loadSessions();
   }, []);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages, isSending]);
@@ -64,14 +65,11 @@ export default function Home() {
     async (sessionId: string) => {
       setCurrentSessionId(sessionId);
       setMessages([]);
-
       try {
         const res = await fetch(`/api/sessions/${sessionId}`);
         if (res.ok) {
-          const data = { messages: [] as Message[] };
           const json = await res.json();
-          data.messages = json.messages || [];
-          setMessages(data.messages);
+          setMessages(json.messages || []);
         }
       } catch (error) {
         console.error('Failed to load session:', error);
@@ -85,7 +83,7 @@ export default function Home() {
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: 'Cuộc trò chuyện mới' }),
+        body: JSON.stringify({ title: 'VenCode Chat' }),
       });
       if (res.ok) {
         const newSession = await res.json();
@@ -114,7 +112,6 @@ export default function Home() {
 
   const sendMessage = async (content: string) => {
     if (!currentSessionId) {
-      // Create a new session first
       try {
         const res = await fetch('/api/sessions', {
           method: 'POST',
@@ -125,7 +122,6 @@ export default function Home() {
           const newSession = await res.json();
           setCurrentSessionId(newSession.id);
           await loadSessions();
-          // Now send the message with the new session ID
           await sendToAI(newSession.id, content);
         }
       } catch (error) {
@@ -133,12 +129,10 @@ export default function Home() {
       }
       return;
     }
-
     await sendToAI(currentSessionId, content);
   };
 
   const sendToAI = async (sessionId: string, content: string) => {
-    // Add user message optimistically
     const userMessage: Message = {
       id: `temp-${Date.now()}`,
       role: 'user',
@@ -149,7 +143,6 @@ export default function Home() {
     setIsSending(true);
 
     try {
-      // Build message history for API
       const apiMessages = [...messages, userMessage].map((m) => ({
         role: m.role,
         content: m.content,
@@ -158,35 +151,36 @@ export default function Home() {
       const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: apiMessages, sessionId }),
+        body: JSON.stringify({
+          messages: apiMessages,
+          sessionId,
+          roleId: currentRole.id,
+        }),
       });
 
       if (res.ok) {
         const data = await res.json();
-        const assistantMessage: Message = {
+        addMessage({
           id: `ai-${Date.now()}`,
           role: 'assistant',
           content: data.content,
           createdAt: new Date().toISOString(),
-        };
-        addMessage(assistantMessage);
-        // Refresh sessions to update title and last message
+        });
         loadSessions();
       } else {
         const errorData = await res.json();
         addMessage({
           id: `error-${Date.now()}`,
           role: 'assistant',
-          content: `❌ Lỗi: ${errorData.error || 'Không thể kết nối đến AI'}`,
+          content: `Lỗi: ${errorData.error || 'Không thể kết nối'}`,
           createdAt: new Date().toISOString(),
         });
       }
     } catch (error) {
-      console.error('Failed to send message:', error);
       addMessage({
         id: `error-${Date.now()}`,
         role: 'assistant',
-        content: '❌ Không thể gửi tin nhắn. Vui lòng thử lại.',
+        content: 'Không thể gửi tin nhắn. Vui lòng thử lại.',
         createdAt: new Date().toISOString(),
       });
     } finally {
@@ -194,12 +188,10 @@ export default function Home() {
     }
   };
 
-  const currentSession = sessions.find((s) => s.id === currentSessionId);
-
   return (
-    <div className="h-dvh flex bg-[#0a0a0a] text-zinc-100 overflow-hidden">
+    <div className="h-dvh flex overflow-hidden" style={{ background: '#121212' }}>
       {/* Desktop Sidebar */}
-      <div className="hidden md:flex md:w-72 lg:w-80 shrink-0 border-r border-zinc-800">
+      <div className="hidden md:flex md:w-[280px] lg:w-[300px] shrink-0" style={{ borderRight: '1px solid #2B2B2B' }}>
         <div className="w-full">
           <ChatSidebar
             sessions={sessions}
@@ -214,69 +206,103 @@ export default function Home() {
 
       {/* Main Chat Area */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <header className="flex items-center gap-3 px-4 py-3 border-b border-zinc-800 bg-zinc-950/80 backdrop-blur-sm shrink-0">
-          <Button
-            variant="ghost"
-            size="icon"
+        {/* Material You Top App Bar */}
+        <header
+          className="flex items-center justify-between px-2 shrink-0 safe-top"
+          style={{ height: 64, background: '#1E1E1E' }}
+        >
+          <button
+            className="md-icon-btn md:hidden"
             onClick={toggleSidebar}
-            className="text-zinc-400 hover:text-zinc-100 md:hidden"
+            aria-label="Menu"
           >
-            <Menu className="h-5 w-5" />
-          </Button>
+            <Menu size={22} />
+          </button>
 
-          <div className="flex items-center gap-2.5 flex-1 min-w-0">
-            <div className="h-8 w-8 rounded-full bg-emerald-600 flex items-center justify-center shrink-0">
-              <Bot className="h-4 w-4 text-white" />
-            </div>
-            <div className="min-w-0">
-              <h1 className="text-sm font-semibold text-zinc-100 truncate">
-                {currentSession?.title || 'ZChat AI'}
-              </h1>
-              <p className="text-[11px] text-emerald-400">Trực tuyến</p>
-            </div>
+          {/* Role Selector */}
+          <div className="relative">
+            <button
+              onClick={() => setShowRolePicker(!showRolePicker)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors"
+              style={{ background: `${currentRole.color}15`, color: currentRole.color }}
+            >
+              <span className="text-sm">{currentRole.icon}</span>
+              <span className="text-xs font-medium hidden sm:inline">{currentRole.name}</span>
+              <ChevronDown size={14} className="hidden sm:block" />
+            </button>
+
+            {/* Role Picker Dropdown */}
+            {showRolePicker && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowRolePicker(false)} />
+                <div
+                  className="absolute top-full left-0 mt-2 z-50 py-2 rounded-2xl md-elevation-2"
+                  style={{ background: '#2B2B2B', minWidth: 180 }}
+                >
+                  {AI_ROLES.map((role, index) => (
+                    <button
+                      key={role.id}
+                      onClick={() => {
+                        setSelectedRoleIndex(index);
+                        setShowRolePicker(false);
+                      }}
+                      className="flex items-center gap-3 w-full px-4 py-2.5 text-left transition-colors"
+                      style={{
+                        background: index === selectedRoleIndex ? '#333333' : 'transparent',
+                      }}
+                    >
+                      <span className="text-base">{role.icon}</span>
+                      <span
+                        className="text-sm font-medium"
+                        style={{
+                          color: index === selectedRoleIndex ? role.color : '#CAC4D0',
+                        }}
+                      >
+                        {role.name}
+                      </span>
+                      {index === selectedRoleIndex && (
+                        <div
+                          className="ml-auto w-2 h-2 rounded-full"
+                          style={{ background: role.color }}
+                        />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            className="md-icon-btn"
             onClick={createNewChat}
-            className="text-zinc-400 hover:text-zinc-100"
-            title="Cuộc trò chuyện mới"
+            aria-label="New chat"
           >
-            <Plus className="h-5 w-5" />
-          </Button>
+            <Plus size={22} />
+          </button>
         </header>
 
         {/* Messages Area */}
-        <div ref={scrollAreaRef} className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto" style={{ background: '#121212' }}>
           {messages.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full px-4 text-center">
-              <div className="h-20 w-20 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center mb-6 shadow-lg shadow-emerald-500/20">
-                <Bot className="h-10 w-10 text-white" />
+            <div className="flex flex-col items-center justify-center h-full px-6">
+              <div
+                className="flex items-center justify-center mb-5"
+                style={{
+                  width: 80,
+                  height: 80,
+                  borderRadius: 28,
+                  background: `linear-gradient(135deg, ${currentRole.color} 0%, ${currentRole.color}88 100%)`,
+                }}
+              >
+                <span className="text-3xl">{currentRole.icon}</span>
               </div>
-              <h2 className="text-xl font-bold text-zinc-100 mb-2">
-                Xin chào! 👋
-              </h2>
-              <p className="text-sm text-zinc-400 max-w-sm">
-                Tôi là ZChat AI, trợ lý của bạn. Hãy bắt đầu cuộc trò chuyện!
+              <p className="text-lg font-medium mb-1" style={{ color: '#E6E1E5' }}>
+                {currentRole.name}
               </p>
-              <div className="mt-6 grid grid-cols-1 sm:grid-cols-2 gap-2 w-full max-w-sm">
-                {[
-                  'Giới thiệu về bản thân',
-                  'Viết code Python',
-                  'Dịch văn bản sang tiếng Anh',
-                  'Giải bài toán toán',
-                ].map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    onClick={() => sendMessage(suggestion)}
-                    className="text-xs text-left px-3 py-2.5 rounded-xl bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700 hover:text-zinc-100 transition-colors border border-zinc-700/50"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
+              <p className="text-sm text-center max-w-[260px]" style={{ color: '#938F99' }}>
+                {getRoleDescription(currentRole.id)}
+              </p>
             </div>
           ) : (
             <div className="py-4 space-y-1">
@@ -297,9 +323,13 @@ export default function Home() {
         <ChatInput onSend={sendMessage} disabled={isSending} />
       </div>
 
-      {/* Mobile Sidebar Sheet */}
+      {/* Mobile Sidebar */}
       <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
-        <SheetContent side="left" className="w-72 p-0 border-zinc-800 bg-zinc-950">
+        <SheetContent
+          side="left"
+          className="w-[280px] p-0"
+          style={{ background: '#1E1E1E' }}
+        >
           <ChatSidebar
             sessions={sessions}
             currentSessionId={currentSessionId}
@@ -316,3 +346,22 @@ export default function Home() {
     </div>
   );
 }
+
+function useRolePicker() {
+  const [show, setShow] = React.useState(false);
+  return [show, setShow] as const;
+}
+
+function getRoleDescription(id: string): string {
+  const descriptions: Record<string, string> = {
+    assistant: 'Trợ lý AI thông minh, đa năng.',
+    coder: 'Chuyên gia lập trình, code & debug.',
+    writer: 'Nhà văn, sáng tạo nội dung.',
+    translator: 'Dịch giả chuyên nghiệp đa ngôn ngữ.',
+    teacher: 'Giáo viên giải thích mọi thứ.',
+    analyst: 'Chuyên gia phân tích & tư vấn.',
+  };
+  return descriptions[id] || 'Trợ lý AI thông minh.';
+}
+
+import React from 'react';

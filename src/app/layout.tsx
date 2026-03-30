@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
 import ServiceWorkerRegistration from "@/components/service-worker-registration";
 
 const geistSans = Geist({
@@ -15,13 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ZChat - AI Chat Agent",
-  description: "A modern AI chat assistant PWA",
+  title: "VenCode",
+  description: "VenCode - AI Chat Assistant",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "ZChat",
+    title: "VenCode",
   },
   icons: {
     icon: "/icon-192.png",
@@ -30,7 +29,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#10b981",
+  themeColor: "#1E1E1E",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -45,11 +44,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="vi" className="dark" suppressHydrationWarning>
+      <head>
+        <meta name="mobile-web-app-capable" content="yes" />
+      </head>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        style={{ background: '#121212', color: '#E6E1E5' }}
       >
         {children}
-        <Toaster />
         <ServiceWorkerRegistration />
       </body>
     </html>

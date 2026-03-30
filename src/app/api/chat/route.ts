@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import ZAI from 'z-ai-web-dev-sdk';
 import { db } from '@/lib/db';
-
-const SYSTEM_PROMPT = `Bạn là ZChat AI, một trợ lý AI thân thiện, hữu ích và thông minh. Bạn luôn trả lời bằng tiếng Việt trừ khi người dùng sử dụng ngôn ngữ khác. Hãy trả lời ngắn gọn, tự nhiên và thân thiện như một người bạn chat.`;
+import { AI_ROLES } from '@/lib/ai-roles';
 
 export async function POST(request: NextRequest) {
   try {
-    const { messages, sessionId } = await request.json();
+    const { messages, sessionId, roleId } = await request.json();
 
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       return NextResponse.json(
@@ -14,6 +13,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Find role or default to assistant
+    const role = AI_ROLES.find((r) => r.id === roleId) || AI_ROLES[0];
 
     // Save user message
     const lastUserMessage = messages[messages.length - 1];
@@ -42,9 +44,9 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Build messages for AI
+    // Build messages for AI with role system prompt
     const aiMessages = [
-      { role: 'system', content: SYSTEM_PROMPT },
+      { role: 'system', content: role.systemPrompt },
       ...messages.map((m: { role: string; content: string }) => ({
         role: m.role,
         content: m.content,

@@ -1,11 +1,11 @@
 {
-  "name": "Z AI Chat Agent",
-  "short_name": "ZChat",
-  "description": "A modern AI chat assistant PWA",
+  "name": "VenCode AI",
+  "short_name": "VenCode",
+  "description": "VenCode - AI Chat Assistant",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#0a0a0a",
-  "theme_color": "#10b981",
+  "background_color": "#121212",
+  "theme_color": "#1E1E1E",
   "orientation": "portrait",
   "icons": [
     {
